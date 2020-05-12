@@ -103,13 +103,6 @@ class K2V8Test {
     fun setUp() {
         v8 = V8.createV8Runtime()
         k2V8 = K2V8(Configuration(v8))
-
-        val fromObject = NestedObject("val")
-        val v8 = V8.createV8Runtime()
-        val k2V8 = K2V8(Configuration(v8))
-        val v8Object = k2V8.convertToV8Object(fromObject, NestedObject.serializer())
-        val kotlinObject = k2V8.convertFromV8Object(v8Object, NestedObject.serializer())
-
     }
 
     @Test
