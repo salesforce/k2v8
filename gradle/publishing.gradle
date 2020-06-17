@@ -28,6 +28,7 @@ task tagAndRelease {
 }
 
 bintrayUpload.mustRunAfter createTag
+artifactoryPublish.mustRunAfter build
 
 publishing {
     publications {
