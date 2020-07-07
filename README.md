@@ -23,3 +23,22 @@ K2V8 uses [Kotlin Serialization](https://github.com/Kotlin/kotlinx.serialization
     val v8Object = k2V8.toV8(serializer, fromObject)
     val kotlinObject = k2V8.fromV8(serializer, v8Object)
 ```
+
+### Consuming
+Add dependency in build.gradle
+```
+dependencies {
+    implementation("com.salesforce.k2v8:k2v8:$k2v8_version")
+    //  optionally J2V8 can be excluded to use specific/newer version
+    //  { exclude group: "com.eclipsesource.j2v8" }
+}
+```
+
+### Publishing
+
+To publish a new version
+
+1. Update the `VERSION` in (gradle.properties](gradle.properties#L15)
+2. Commit changes
+3. `./gradlew createTag` (creates a tag locally and pushes to github)
+4. `./gradlew bintrayUpload` (builds latest and publishes to [bintray](https://bintray.com/beta/#/salesforce-mobile/android/k2v8))
