@@ -9,10 +9,13 @@ package com.salesforce.k2v8
 
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
+import com.salesforce.k2v8.internal.decodeSerializableValuePolymorphic
 import kotlinx.serialization.CompositeDecoder
 import kotlinx.serialization.Decoder
 import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.PolymorphicKind
 import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.StructureKind
 import kotlinx.serialization.UpdateMode
@@ -30,7 +33,7 @@ internal fun <T> K2V8.convertFromV8Object(
 }
 
 class V8ObjectDecoder(
-    private val k2V8: K2V8,
+    internal val k2V8: K2V8,
     private val value: V8Object,
     override val context: SerialModule = k2V8.context
 ) : Decoder, CompositeDecoder {
@@ -38,8 +41,10 @@ class V8ObjectDecoder(
     override val updateMode: UpdateMode = UpdateMode.OVERWRITE
 
     private val nodes = Stack<InputNode>()
-    private val currentNode: InputNode
+    internal val currentNode: InputNode
         get() = nodes.peek()
+
+    internal fun currentObject() = if (nodes.isNotEmpty()) currentNode.v8Object else value
 
     override fun beginStructure(
         descriptor: SerialDescriptor,
@@ -47,7 +52,7 @@ class V8ObjectDecoder(
     ): CompositeDecoder {
         val key = if (nodes.isNotEmpty()) currentNode.deferredKey else null
         val node = when (descriptor.kind) {
-            is StructureKind.CLASS -> {
+            is StructureKind.CLASS, is PolymorphicKind -> {
                 InputNode.ObjectInputNode(
                     descriptor,
                     if (key == null) value else currentNode.v8Object.getObject(key)
@@ -190,12 +195,18 @@ class V8ObjectDecoder(
         return decodeNullableSerializableValue(deserializer)
     }
 
+    @InternalSerializationApi
     override fun <T> decodeSerializableElement(
         descriptor: SerialDescriptor,
         index: Int,
         deserializer: DeserializationStrategy<T>
     ): T {
         return decodeSerializableValue(deserializer)
+    }
+
+    @InternalSerializationApi
+    override fun <T> decodeSerializableValue(deserializer: DeserializationStrategy<T>): T {
+        return decodeSerializableValuePolymorphic(deserializer)
     }
 
     override fun endStructure(descriptor: SerialDescriptor) {
@@ -222,7 +233,7 @@ class V8ObjectDecoder(
         return updateSerializableValue(deserializer, old)
     }
 
-    private sealed class InputNode(
+    internal sealed class InputNode(
         val totalElements: Int,
         val v8Object: V8Object
     ) {

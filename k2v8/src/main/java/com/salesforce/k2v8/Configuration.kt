@@ -11,6 +11,15 @@ import com.eclipsesource.v8.V8
 
 /**
  * Configuration class to configure a [K2V8] instance. The [runtime] is the [V8] instance that
- * will be used to serialize/deserialize objects to/from.
+ * will be used to serialize/deserialize objects to/from. The [classDiscriminator] is the name of
+ * the class descriptor property in polymorphic serialization.
  */
-class Configuration(val runtime: V8)
+data class Configuration(
+    val runtime: V8,
+    val classDiscriminator: String = defaultDiscriminator
+) {
+    companion object {
+        @JvmStatic
+        private val defaultDiscriminator = "__type"
+    }
+}

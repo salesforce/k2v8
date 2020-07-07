@@ -9,12 +9,17 @@ package com.salesforce.k2v8
 
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
+import com.salesforce.k2v8.internal.encodePolymorphically
 import kotlinx.serialization.CompositeEncoder
 import kotlinx.serialization.Encoder
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.PolymorphicKind
+import kotlinx.serialization.PrimitiveKind
 import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.StructureKind
+import kotlinx.serialization.UnionKind
 import kotlinx.serialization.encode
 import kotlinx.serialization.modules.SerialModule
 import java.util.Stack
@@ -27,11 +32,12 @@ internal fun <T> K2V8.convertToV8Object(value: T, serializer: SerializationStrat
 }
 
 class V8ObjectEncoder(
-    private val k2V8: K2V8,
+    internal val k2V8: K2V8,
     override val context: SerialModule = k2V8.context,
     private val consumer: (V8Object) -> Unit
 ) : Encoder, CompositeEncoder {
 
+    private var writePolymorphic = false
     private val v8 = k2V8.configuration.runtime
     private var rootNode: OutputNode? = null
     private val nodes = Stack<OutputNode>()
@@ -44,7 +50,7 @@ class V8ObjectEncoder(
     ): CompositeEncoder {
         val key = if (nodes.isNotEmpty()) currentNode.deferredKey else null
         val node = when (descriptor.kind) {
-            StructureKind.CLASS -> OutputNode.ObjectOutputNode(
+            StructureKind.CLASS, is PolymorphicKind -> OutputNode.ObjectOutputNode(
                 V8Object(v8)
             )
             StructureKind.LIST, StructureKind.MAP -> if (descriptor.kind == StructureKind.LIST) {
@@ -58,6 +64,11 @@ class V8ObjectEncoder(
             }
             StructureKind.OBJECT -> OutputNode.UndefinedOutputNode()
             else -> throw V8EncodingException("Unexpected kind encountered while trying to encode to V8Object: ${descriptor.kind}")
+        }
+
+        if (writePolymorphic) {
+            writePolymorphic = false
+            node.v8Object?.add(k2V8.configuration.classDiscriminator, descriptor.serialName)
         }
 
         // if this is the root node set it
@@ -177,6 +188,7 @@ class V8ObjectEncoder(
         encodeNullableSerializableValue(serializer, value)
     }
 
+    @InternalSerializationApi
     override fun <T> encodeSerializableElement(
         descriptor: SerialDescriptor,
         index: Int,
@@ -185,6 +197,15 @@ class V8ObjectEncoder(
     ) {
         currentNode.encodeElementIndex(descriptor, index)
         encodeSerializableValue(serializer, value)
+    }
+
+    @InternalSerializationApi
+    override fun <T> encodeSerializableValue(serializer: SerializationStrategy<T>, value: T) {
+        if (serializer.descriptor.kind !is PrimitiveKind && serializer.descriptor.kind !== UnionKind.ENUM_KIND) {
+            encodePolymorphically(serializer, value) { writePolymorphic = true }
+        } else {
+            super.encodeSerializableValue(serializer, value)
+        }
     }
 
     override fun endStructure(descriptor: SerialDescriptor) {

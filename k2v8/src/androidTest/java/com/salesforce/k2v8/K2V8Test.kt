@@ -36,6 +36,16 @@ class K2V8Test {
     }
 
     @Serializable
+    sealed class SealedClass {
+
+        @Serializable
+        data class ClassOne(val someString: String): SealedClass()
+
+        @Serializable
+        data class ClassTwo(val someInt: Int): SealedClass()
+    }
+
+    @Serializable
     data class SupportedTypes(
         val byte: Byte,
         val nullByte: Byte?,
@@ -338,6 +348,28 @@ class K2V8Test {
             }
         }
     }
+
+    // region sealed class tests
+
+    @Test
+    fun sealedClassToV8() = v8.scope {
+        forAll(100, Gen.string()) { string ->
+            val encoded = k2V8.toV8(SealedClass.serializer(), SealedClass.ClassOne(string))
+            with(encoded) {
+                getString("someString") == string
+            }
+        }
+    }
+
+    @Test
+    fun sealedClassFromV8() = v8.scope {
+        forAll(100, Gen.string()) { string ->
+            val decoded = k2V8.fromV8(SealedClass.serializer(), k2V8.toV8(SealedClass.serializer(), SealedClass.ClassOne(string)))
+            decoded is SealedClass.ClassOne && decoded.someString == string
+        }
+    }
+
+    // endregion
 
     // region list tests
 
