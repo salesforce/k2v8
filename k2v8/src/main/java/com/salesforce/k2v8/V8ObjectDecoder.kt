@@ -10,17 +10,18 @@ package com.salesforce.k2v8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
 import com.salesforce.k2v8.internal.decodeSerializableValuePolymorphic
-import kotlinx.serialization.CompositeDecoder
-import kotlinx.serialization.Decoder
+import kotlinx.serialization.encoding.CompositeDecoder
+import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.PolymorphicKind
 import kotlinx.serialization.SerialDescriptor
-import kotlinx.serialization.StructureKind
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.UpdateMode
 import kotlinx.serialization.decode
-import kotlinx.serialization.modules.SerialModule
+import kotlinx.serialization.descriptors.PolymorphicKind
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.modules.SerializersModule
 import java.util.Stack
 import kotlin.reflect.KClass
 
@@ -32,11 +33,12 @@ internal fun <T> K2V8.convertFromV8Object(
     return decoder.decode(deserializer)
 }
 
-class V8ObjectDecoder(
-    internal val k2V8: K2V8,
-    private val value: V8Object,
-    override val context: SerialModule = k2V8.context
-) : Decoder, CompositeDecoder {
+//class V8ObjectDecoder(
+//    internal val k2V8: K2V8,
+//    private val value: V8Object,
+//    override val context: SerializersModule = k2V8.context
+//) : Decoder, CompositeDecoder {
+class V8ObjectDecoder(override val serializersModule: SerializersModule) : Decoder, CompositeDecoder {
 
     override val updateMode: UpdateMode = UpdateMode.OVERWRITE
 

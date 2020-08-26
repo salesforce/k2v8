@@ -11,13 +11,12 @@ import com.eclipsesource.v8.V8Object
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialFormat
 import kotlinx.serialization.SerializationStrategy
-import kotlinx.serialization.modules.SerialModule
+import kotlinx.serialization.modules.SerializersModule
 
 /**
  * The main entry point for V8Object serialization.
  */
-class K2V8(val configuration: Configuration, override val context: SerialModule = DefaultModule) : SerialFormat {
-
+class K2V8(override val serializersModule: SerializersModule) : SerialFormat {
     /**
      * Serializes a [T] value to a [V8Object] using the [serializer] provided.
      */
