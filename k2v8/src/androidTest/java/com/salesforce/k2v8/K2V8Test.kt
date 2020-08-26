@@ -39,10 +39,10 @@ class K2V8Test {
     sealed class SealedClass {
 
         @Serializable
-        data class ClassOne(val someString: String): SealedClass()
+        data class ClassOne(val someString: String) : SealedClass()
 
         @Serializable
-        data class ClassTwo(val someInt: Int): SealedClass()
+        data class ClassTwo(val someInt: Int) : SealedClass()
     }
 
     @Serializable
@@ -669,7 +669,8 @@ class K2V8Test {
     fun stringKeyedSerializableValueMapToV8() = v8.scope {
         forAll(5, Gen.map(Gen.string(), Gen.string())) { stringMap ->
             val map = stringMap.mapValues { (_, value) ->
-                NestedObject(value) }
+                NestedObject(value)
+            }
             with(
                 k2V8.toV8(
                     MapSerializer(String.serializer(), NestedObject.serializer()),
