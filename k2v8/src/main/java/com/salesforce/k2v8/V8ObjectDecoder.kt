@@ -9,6 +9,7 @@ package com.salesforce.k2v8
 
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
+import com.eclipsesource.v8.utils.MemoryManager
 import com.salesforce.k2v8.internal.decodeSerializableValuePolymorphic
 import kotlinx.serialization.CompositeDecoder
 import kotlinx.serialization.Decoder
@@ -28,8 +29,13 @@ internal fun <T> K2V8.convertFromV8Object(
     value: V8Object,
     deserializer: DeserializationStrategy<T>
 ): T {
-    val decoder = V8ObjectDecoder(this, value)
-    return decoder.decode(deserializer)
+    val scope = MemoryManager(value.runtime)
+    try {
+        val decoder = V8ObjectDecoder(this, value)
+        return decoder.decode(deserializer)
+    } finally {
+        scope.release()
+    }
 }
 
 class V8ObjectDecoder(
@@ -322,7 +328,7 @@ class V8ObjectDecoder(
                     }
                     else -> throw V8DecodingException(
                         "Unexpected state, key is null while " +
-                            "decoding value of class type ${kClass.simpleName}"
+                                "decoding value of class type ${kClass.simpleName}"
                     )
                 }
             }
