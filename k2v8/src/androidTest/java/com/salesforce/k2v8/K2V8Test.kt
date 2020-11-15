@@ -128,7 +128,7 @@ class K2V8Test {
             val supportedTypes = getSupportedTypes(chars, longs, strings, enums, stringMap)
             val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(SupportedTypes.serializer(), supportedTypes)) {
-                // verify the k2V8.toV8 only increased the reference count by 1
+                // verify the k2V8.toV8 only increased the reference count by 1 - the final result object
                 (v8.objectReferenceCount - refCountStart) == 1L &&
                 getInteger("byte").toByte() == supportedTypes.byte &&
                     get("nullByte") == supportedTypes.nullByte &&
@@ -301,7 +301,10 @@ class K2V8Test {
                 add("stringMap", stringStringV8Object)
                 add("enumMap", enumStringV8Array)
             }
+            val startCount = v8.objectReferenceCount
             with(k2V8.fromV8(SupportedTypes.serializer(), value)) {
+                // make sure the V8Object references all released.
+                v8.objectReferenceCount -  startCount == 0L &&
                 byte == supportedTypes.byte &&
                     nullByte == supportedTypes.nullByte &&
                     nonNullByte == supportedTypes.nonNullByte &&

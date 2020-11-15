@@ -29,13 +29,7 @@ internal fun <T> K2V8.convertFromV8Object(
     value: V8Object,
     deserializer: DeserializationStrategy<T>
 ): T {
-    val scope = MemoryManager(value.runtime)
-    try {
-        val decoder = V8ObjectDecoder(this, value)
-        return decoder.decode(deserializer)
-    } finally {
-        scope.release()
-    }
+    return V8ObjectDecoder(this, value).decode(deserializer)
 }
 
 class V8ObjectDecoder(
@@ -218,7 +212,13 @@ class V8ObjectDecoder(
     override fun endStructure(descriptor: SerialDescriptor) {
 
         // pop the current node off the stack
-        nodes.pop()
+        val finishedNode = nodes.pop()
+
+        // if there are still node to process, the finished node is not root.
+        // so need to release the reference for the finished node.
+        if (nodes.isNotEmpty()) {
+            finishedNode.v8Object.close()
+        }
     }
 
     override fun <T : Any> updateNullableSerializableElement(
@@ -250,7 +250,11 @@ class V8ObjectDecoder(
         open fun <T : Any> handleValue(kClass: KClass<T>): T? = null
 
         fun decodeNotNullMark(): Boolean {
-            return deferredKey?.let { key -> v8Object.get(key) } != null
+            if (deferredKey == null) return false
+            val value = v8Object.get(deferredKey)
+            val result = value != null
+            (value as? V8Object)?.close()
+            return result
         }
 
         inline fun <reified T : Any> decodeValue(): T {

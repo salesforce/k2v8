@@ -24,9 +24,7 @@ class K2V8(val configuration: Configuration, override val context: SerialModule 
      * Serializes a [T] value to a [V8Object] using the [serializer] provided.
      */
     fun <T> toV8(serializer: SerializationStrategy<T>, value: T) =
-        this.configuration.runtime.scopeWithResult {
-            convertToV8Object(value, serializer)
-        }
+        convertToV8Object(value, serializer)
 
     /**
      * Deserializes a [V8Object] value to a [T] using the [deserializer] provided.
