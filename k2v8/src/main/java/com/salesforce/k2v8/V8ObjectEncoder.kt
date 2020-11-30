@@ -210,8 +210,8 @@ class V8ObjectEncoder(
 
     override fun endStructure(descriptor: SerialDescriptor) {
 
-        // pop the current node off the stack
-        nodes.pop()
+        // pop the finished current node off the stack
+        val finishedNode = nodes.pop()
 
         // if the stack is empty we are done encoding
         if (nodes.empty()) {
@@ -219,6 +219,7 @@ class V8ObjectEncoder(
             // notify consumer
             rootNode?.v8Object?.apply(consumer)
         } else {
+            finishedNode.v8Object?.close()
             currentNode.reset()
         }
     }
