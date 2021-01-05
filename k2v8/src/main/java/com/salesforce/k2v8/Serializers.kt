@@ -7,6 +7,6 @@
 
 package com.salesforce.k2v8
 
-import kotlinx.serialization.modules.serializersModuleOf
+import kotlinx.serialization.modules.EmptySerializersModule
 
-val DefaultModule = serializersModuleOf(emptyMap())
+val DefaultModule = EmptySerializersModule

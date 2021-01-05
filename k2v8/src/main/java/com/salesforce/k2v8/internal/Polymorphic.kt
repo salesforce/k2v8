@@ -2,45 +2,50 @@ package com.salesforce.k2v8.internal
 
 import com.eclipsesource.v8.V8Object
 import com.eclipsesource.v8.V8Value
+import com.salesforce.k2v8.V8DecodingException
 import com.salesforce.k2v8.V8ObjectDecoder
 import com.salesforce.k2v8.V8ObjectEncoder
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.InternalSerializationApi
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.PolymorphicKind
-import kotlinx.serialization.PrimitiveKind
-import kotlinx.serialization.SealedClassSerializer
-import kotlinx.serialization.SerialKind
-import kotlinx.serialization.SerializationStrategy
-import kotlinx.serialization.UnionKind
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.PolymorphicKind
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.internal.AbstractPolymorphicSerializer
 
 /**
  * Adapted from [kotlinx.serialization.json.internal.encodePolymorphically]
  */
-@InternalSerializationApi
 @Suppress("UNCHECKED_CAST")
 internal inline fun <T> V8ObjectEncoder.encodePolymorphically(serializer: SerializationStrategy<T>, value: T, ifPolymorphic: () -> Unit) {
     if (serializer !is AbstractPolymorphicSerializer<*>) {
         serializer.serialize(this, value)
         return
     }
-    serializer as AbstractPolymorphicSerializer<Any> // PolymorphicSerializer <*> projects 2nd argument of findPolymorphic... to Nothing, so we need an additional cast
-    val actualSerializer = serializer.findPolymorphicSerializer(this, value as Any).cast<Any>()
-    validateIfSealed(serializer, actualSerializer, k2V8.configuration.classDiscriminator)
-    val kind = actualSerializer.descriptor.kind
-    checkKind(kind)
+    val actualSerializer = findActualSerializer(serializer as SerializationStrategy<Any>, value as Any)
     ifPolymorphic()
     actualSerializer.serialize(this, value)
 }
 
 /**
+ * Adapted from [kotlinx.serialization.json.internal.findActualSerializer]
+ */
+private fun V8ObjectEncoder.findActualSerializer(
+        serializer: SerializationStrategy<Any>,
+        value: Any
+): SerializationStrategy<Any> {
+    val casted = serializer as AbstractPolymorphicSerializer<Any>
+    val actualSerializer = casted.findPolymorphicSerializer(this, value as Any)
+    validateIfSealed(casted, actualSerializer, k2V8.configuration.classDiscriminator)
+    val kind = actualSerializer.descriptor.kind
+    checkKind(kind)
+    return actualSerializer
+}
+
+/**
  * Adapted from [kotlinx.serialization.json.internal.validateIfSealed]
  */
-@InternalSerializationApi
 private fun validateIfSealed(
-    serializer: KSerializer<*>,
-    actualSerializer: KSerializer<Any>,
+    serializer: SerializationStrategy<*>,
+    actualSerializer: SerializationStrategy<Any>,
     classDiscriminator: String
 ) {
     if (serializer !is SealedClassSerializer<*>) return
@@ -59,21 +64,14 @@ private fun validateIfSealed(
  * Adapted from [kotlinx.serialization.json.internal.checkKind]
  */
 internal fun checkKind(kind: SerialKind) {
-    if (kind is UnionKind.ENUM_KIND) error("Enums cannot be serialized polymorphically with 'type' parameter.")
+    if (kind is SerialKind.ENUM) error("Enums cannot be serialized polymorphically with 'type' parameter.")
     if (kind is PrimitiveKind) error("Primitives cannot be serialized polymorphically with 'type' parameter.")
     if (kind is PolymorphicKind) error("Actual serializer for polymorphic cannot be polymorphic itself")
 }
 
 /**
- * Adapted from [kotlinx.serialization.json.internal.cast]
- */
-@Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
-internal inline fun <T> KSerializer<*>.cast(): KSerializer<T> = this as KSerializer<T>
-
-/**
  * Adapted from [kotlinx.serialization.json.internal.decodeSerializableValuePolymorphic]
  */
-@InternalSerializationApi
 internal fun <T> V8ObjectDecoder.decodeSerializableValuePolymorphic(deserializer: DeserializationStrategy<T>): T {
 
     // if this isn't a polymorphic serializer allow it to do it's own deserialization
@@ -102,9 +100,18 @@ internal fun <T> V8ObjectDecoder.decodeSerializableValuePolymorphic(deserializer
         }
 
         // find the actual serializer for the type
-        val actualSerializer = deserializer.findPolymorphicSerializer(this, type).cast<T>()
+        val actualSerializer = deserializer.findPolymorphicSerializerOrNull(this, type) ?:
+                throwSerializerNotFound(type, original)
 
         // return deserialized object
-        k2V8.fromV8(actualSerializer, copied)
+        @Suppress("UNCHECKED_CAST")
+        k2V8.fromV8(actualSerializer as DeserializationStrategy<T>, copied)
     }
+}
+
+private fun throwSerializerNotFound(type: String?, v8Object: V8Object): Nothing {
+    val suffix =
+            if (type == null) "missing class discriminator ('null')"
+            else "class discriminator '$type'"
+    throw V8DecodingException("Polymorphic serializer was not found for $suffix, V8Object: $v8Object")
 }
