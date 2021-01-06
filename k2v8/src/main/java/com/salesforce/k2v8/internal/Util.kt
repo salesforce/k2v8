@@ -1,6 +1,6 @@
 package com.salesforce.k2v8.internal
 
-import kotlinx.serialization.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
 
 /**
  * Adapted from [kotlinx.serialization.internal.cachedSerialNames]

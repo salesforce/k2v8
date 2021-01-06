@@ -8,16 +8,13 @@
 package com.salesforce.k2v8
 
 import com.eclipsesource.v8.V8Object
-import com.eclipsesource.v8.utils.MemoryManager
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.SerialFormat
-import kotlinx.serialization.SerializationStrategy
-import kotlinx.serialization.modules.SerialModule
+import kotlinx.serialization.*
+import kotlinx.serialization.modules.SerializersModule
 
 /**
  * The main entry point for V8Object serialization.
  */
-class K2V8(val configuration: Configuration, override val context: SerialModule = DefaultModule) :
+class K2V8(val configuration: Configuration, override val serializersModule: SerializersModule = DefaultModule) :
     SerialFormat {
 
     /**

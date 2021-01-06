@@ -10,30 +10,23 @@ package com.salesforce.k2v8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
 import com.salesforce.k2v8.internal.encodePolymorphically
-import kotlinx.serialization.CompositeEncoder
-import kotlinx.serialization.Encoder
-import kotlinx.serialization.InternalSerializationApi
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.PolymorphicKind
-import kotlinx.serialization.PrimitiveKind
-import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.SerializationStrategy
-import kotlinx.serialization.StructureKind
-import kotlinx.serialization.UnionKind
-import kotlinx.serialization.encode
-import kotlinx.serialization.modules.SerialModule
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.CompositeEncoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.modules.SerializersModule
 import java.util.Stack
 
 internal fun <T> K2V8.convertToV8Object(value: T, serializer: SerializationStrategy<T>): V8Object {
     lateinit var result: V8Object
     val encoder = V8ObjectEncoder(this) { result = it }
-    encoder.encode(serializer, value)
+    encoder.encodeSerializableValue(serializer, value)
     return result
 }
 
 class V8ObjectEncoder(
     internal val k2V8: K2V8,
-    override val context: SerialModule = k2V8.context,
+    override val serializersModule: SerializersModule = k2V8.serializersModule,
     private val consumer: (V8Object) -> Unit
 ) : Encoder, CompositeEncoder {
 
@@ -45,8 +38,7 @@ class V8ObjectEncoder(
         get() = nodes.peek()
 
     override fun beginStructure(
-        descriptor: SerialDescriptor,
-        vararg typeSerializers: KSerializer<*>
+            descriptor: SerialDescriptor,
     ): CompositeEncoder {
         val key = if (nodes.isNotEmpty()) currentNode.deferredKey else null
         val node = when (descriptor.kind) {
@@ -134,10 +126,6 @@ class V8ObjectEncoder(
         currentNode.encodeValue(value)
     }
 
-    override fun encodeUnit() {
-        currentNode.encodeUnit()
-    }
-
     override fun encodeBooleanElement(descriptor: SerialDescriptor, index: Int, value: Boolean) {
         currentNode.encodeNamedValue(descriptor.getElementName(index), value)
     }
@@ -174,10 +162,6 @@ class V8ObjectEncoder(
         currentNode.encodeNamedValue(descriptor.getElementName(index), value)
     }
 
-    override fun encodeUnitElement(descriptor: SerialDescriptor, index: Int) {
-        currentNode.encodeUnit()
-    }
-
     override fun <T : Any> encodeNullableSerializableElement(
         descriptor: SerialDescriptor,
         index: Int,
@@ -188,7 +172,6 @@ class V8ObjectEncoder(
         encodeNullableSerializableValue(serializer, value)
     }
 
-    @InternalSerializationApi
     override fun <T> encodeSerializableElement(
         descriptor: SerialDescriptor,
         index: Int,
@@ -199,9 +182,8 @@ class V8ObjectEncoder(
         encodeSerializableValue(serializer, value)
     }
 
-    @InternalSerializationApi
     override fun <T> encodeSerializableValue(serializer: SerializationStrategy<T>, value: T) {
-        if (serializer.descriptor.kind !is PrimitiveKind && serializer.descriptor.kind !== UnionKind.ENUM_KIND) {
+        if (serializer.descriptor.kind !is PrimitiveKind && serializer.descriptor.kind !== SerialKind.ENUM) {
             encodePolymorphically(serializer, value) { writePolymorphic = true }
         } else {
             super.encodeSerializableValue(serializer, value)
@@ -242,10 +224,6 @@ class V8ObjectEncoder(
 
         fun encodeNull() {
             deferredKey?.let { key -> encodeNamedValue(key, null) }
-        }
-
-        fun encodeUnit() {
-            deferredKey?.let { key -> encodeNamedValue(key, Unit) }
         }
 
         fun <T : Any> encodeNamedValue(name: String, value: T?) {
