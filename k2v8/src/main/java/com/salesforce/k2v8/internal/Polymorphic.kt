@@ -33,7 +33,7 @@ private fun V8ObjectEncoder.findActualSerializer(
         value: Any
 ): SerializationStrategy<Any> {
     val casted = serializer as AbstractPolymorphicSerializer<Any>
-    val actualSerializer = casted.findPolymorphicSerializer(this, value as Any)
+    val actualSerializer = casted.findPolymorphicSerializer(this, value)
     validateIfSealed(casted, actualSerializer, k2V8.configuration.classDiscriminator)
     val kind = actualSerializer.descriptor.kind
     checkKind(kind)
