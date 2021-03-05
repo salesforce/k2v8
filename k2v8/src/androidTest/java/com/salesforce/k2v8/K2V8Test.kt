@@ -11,8 +11,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Object
+import io.kotlintest.matchers.collections.shouldBeEmpty
 import io.kotlintest.properties.Gen
 import io.kotlintest.properties.forAll
+import io.kotlintest.shouldBe
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -106,6 +108,12 @@ class K2V8Test {
         val nestedObject: NestedObject
     )
 
+    @Serializable
+    data class NullableNestedObject(
+        val value: String,
+        val nestedList: List<NestedObject>? = null
+    )
+
     private lateinit var v8: V8
     private lateinit var k2V8: K2V8
 
@@ -130,7 +138,7 @@ class K2V8Test {
             with(k2V8.toV8(SupportedTypes.serializer(), supportedTypes)) {
                 // verify the k2V8.toV8 only increased the reference count by 1 - the final result object
                 (v8.objectReferenceCount - refCountStart) == 1L &&
-                getInteger("byte").toByte() == supportedTypes.byte &&
+                    getInteger("byte").toByte() == supportedTypes.byte &&
                     get("nullByte") == supportedTypes.nullByte &&
                     getInteger("nonNullByte").toByte() == supportedTypes.nonNullByte &&
                     getInteger("short").toShort() == supportedTypes.short &&
@@ -304,8 +312,8 @@ class K2V8Test {
             val startCount = v8.objectReferenceCount
             with(k2V8.fromV8(SupportedTypes.serializer(), value)) {
                 // make sure the V8Object references all released.
-                v8.objectReferenceCount -  startCount == 0L &&
-                byte == supportedTypes.byte &&
+                v8.objectReferenceCount - startCount == 0L &&
+                    byte == supportedTypes.byte &&
                     nullByte == supportedTypes.nullByte &&
                     nonNullByte == supportedTypes.nonNullByte &&
                     short == supportedTypes.short &&
@@ -675,7 +683,8 @@ class K2V8Test {
     fun stringKeyedSerializableValueMapToV8() = v8.scope {
         forAll(5, Gen.map(Gen.string(), Gen.string())) { stringMap ->
             val map = stringMap.mapValues { (_, value) ->
-                NestedObject(value) }
+                NestedObject(value)
+            }
             with(
                 k2V8.toV8(
                     MapSerializer(String.serializer(), NestedObject.serializer()),
@@ -751,6 +760,14 @@ class K2V8Test {
     fun floatKeyedMapToV8ThrowsException() {
         val floatMap = mapOf(1f to "1", 2f to "2", 3f to "3")
         k2V8.toV8(MapSerializer(Float.serializer(), String.serializer()), floatMap)
+    }
+
+    @Test
+    fun undefinedValueIsSerialized() {
+        val jsonObject = v8.executeScript("var result = {\"value\": \"foo\", \"nestedList\": undefined}; result")
+        val v8Object = k2V8.fromV8(NullableNestedObject.serializer(), jsonObject as V8Object)
+        v8Object.value.shouldBe("foo")
+        v8Object.nestedList?.shouldBeEmpty()
     }
 
     // endregion

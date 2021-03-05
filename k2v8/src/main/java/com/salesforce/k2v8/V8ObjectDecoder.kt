@@ -51,8 +51,17 @@ class V8ObjectDecoder(
                 )
             }
             is StructureKind.LIST -> {
-                val v8Array = (if (key == null) value else currentNode.v8Object.get(key)) as V8Array
-                InputNode.ListInputNode(v8Array)
+                val v8Array = (if (key == null) {
+                    value
+                } else {
+                    val nodeValue = currentNode.v8Object.get(key)
+                    if (nodeValue is V8Array) {
+                        nodeValue
+                    } else {
+                        V8Array(currentNode.v8Object.runtime)
+                    }
+                })
+                InputNode.ListInputNode(v8Array as V8Array)
             }
             StructureKind.MAP -> {
                 val v8Object =
