@@ -41,10 +41,10 @@ class K2V8Test {
     sealed class SealedClass {
 
         @Serializable
-        data class ClassOne(val someString: String): SealedClass()
+        data class ClassOne(val someString: String) : SealedClass()
 
         @Serializable
-        data class ClassTwo(val someInt: Int): SealedClass()
+        data class ClassTwo(val someInt: Int) : SealedClass()
     }
 
     @Serializable

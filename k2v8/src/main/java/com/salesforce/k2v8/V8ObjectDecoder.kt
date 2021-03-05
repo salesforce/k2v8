@@ -40,7 +40,7 @@ class V8ObjectDecoder(
     internal fun currentObject() = if (nodes.isNotEmpty()) currentNode.v8Object else value
 
     override fun beginStructure(
-            descriptor: SerialDescriptor
+        descriptor: SerialDescriptor
     ): CompositeDecoder {
         val key = if (nodes.isNotEmpty()) currentNode.deferredKey else null
         val node = when (descriptor.kind) {

@@ -8,7 +8,9 @@
 package com.salesforce.k2v8
 
 import com.eclipsesource.v8.V8Object
-import kotlinx.serialization.*
+import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.SerialFormat
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.modules.SerializersModule
 
 /**

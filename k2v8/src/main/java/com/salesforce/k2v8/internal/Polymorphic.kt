@@ -5,10 +5,13 @@ import com.eclipsesource.v8.V8Value
 import com.salesforce.k2v8.V8DecodingException
 import com.salesforce.k2v8.V8ObjectDecoder
 import com.salesforce.k2v8.V8ObjectEncoder
-import kotlinx.serialization.*
+import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.SealedClassSerializer
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.descriptors.PolymorphicKind
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.findPolymorphicSerializer
 import kotlinx.serialization.internal.AbstractPolymorphicSerializer
 
 /**
@@ -29,8 +32,8 @@ internal inline fun <T> V8ObjectEncoder.encodePolymorphically(serializer: Serial
  * Adapted from [kotlinx.serialization.json.internal.findActualSerializer]
  */
 private fun V8ObjectEncoder.findActualSerializer(
-        serializer: SerializationStrategy<Any>,
-        value: Any
+    serializer: SerializationStrategy<Any>,
+    value: Any
 ): SerializationStrategy<Any> {
     val casted = serializer as AbstractPolymorphicSerializer<Any>
     val actualSerializer = casted.findPolymorphicSerializer(this, value)
@@ -100,8 +103,8 @@ internal fun <T> V8ObjectDecoder.decodeSerializableValuePolymorphic(deserializer
         }
 
         // find the actual serializer for the type
-        val actualSerializer = deserializer.findPolymorphicSerializerOrNull(this, type) ?:
-                throwSerializerNotFound(type, original)
+        val actualSerializer = deserializer.findPolymorphicSerializerOrNull(this, type)
+                ?: throwSerializerNotFound(type, original)
 
         // return deserialized object
         @Suppress("UNCHECKED_CAST")
