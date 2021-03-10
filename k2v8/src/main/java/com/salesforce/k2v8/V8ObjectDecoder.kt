@@ -65,7 +65,16 @@ class V8ObjectDecoder(
             }
             StructureKind.MAP -> {
                 val v8Object =
-                    (if (key == null) value else currentNode.v8Object.get(key)) as V8Object
+                    (if (key == null) {
+                        value
+                    } else {
+                        val nodeValue = currentNode.v8Object.get(key)
+                        if (nodeValue is V8Object && !nodeValue.isUndefined) {
+                            nodeValue
+                        } else {
+                            V8Object(currentNode.v8Object.runtime)
+                        }
+                    })
                 InputNode.MapInputNode(v8Object)
             }
             is StructureKind.OBJECT -> InputNode.UndefinedInputNode(
