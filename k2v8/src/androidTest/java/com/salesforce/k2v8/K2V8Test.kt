@@ -111,6 +111,7 @@ class K2V8Test {
     @Serializable
     data class NullableNestedObject(
         val value: String,
+        val nestedMap: Map<String, String>? = null,
         val nestedList: List<NestedObject>? = null
     )
 
@@ -764,10 +765,11 @@ class K2V8Test {
 
     @Test
     fun undefinedValueIsSerialized() {
-        val jsonObject = v8.executeScript("var result = {\"value\": \"foo\", \"nestedList\": undefined}; result")
+        val jsonObject = v8.executeScript("var result = {\"value\": \"foo\", \"nestedList\": undefined, \"nestedMap\": undefined}; result")
         val v8Object = k2V8.fromV8(NullableNestedObject.serializer(), jsonObject as V8Object)
         v8Object.value.shouldBe("foo")
         v8Object.nestedList?.shouldBeEmpty()
+        v8Object.nestedMap?.shouldBe(mapOf())
     }
 
     // endregion
