@@ -1,4 +1,5 @@
 ## K2V8
+[![Android](https://api.bintray.com/packages/salesforce-mobile/android/k2v8/images/download.svg) ](https://bintray.com/salesforce-mobile/android/k2v8/_latestVersion)
 
 K2V8 is a de/serialization library for converting between Kotlin objects and [J2V8](https://github.com/eclipsesource/J2V8) V8Objects.
 
