@@ -36,7 +36,7 @@ class V8ExtensionsTest {
 
         // verify the object is released once scope is done
         v8.scope {
-            val barObj = V8Object(v8)
+            V8Object(v8)
         }
         assertEquals(0, v8.objectReferenceCount)
     }

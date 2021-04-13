@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
+import org.junit.Assert
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,194 +29,104 @@ import org.junit.runner.RunWith
  * Unit tests for [K2V8].
  */
 @RunWith(AndroidJUnit4::class)
-class K2V8Test {
-
-    @Serializable
-    @Suppress("unused")
-    enum class Enum {
-        VALUE_1,
-        VALUE_2,
-        VALUE_3
-    }
-
-    @Serializable
-    sealed class SealedClass {
-
-        @Serializable
-        data class ClassOne(val someString: String) : SealedClass()
-
-        @Serializable
-        data class ClassTwo(val someInt: Int) : SealedClass()
-    }
-
-    @Serializable
-    data class SupportedTypes(
-        val byte: Byte,
-        val nullByte: Byte?,
-        val nonNullByte: Byte?,
-        val short: Short,
-        val nullShort: Short?,
-        val nonNullShort: Short?,
-        val char: Char,
-        val nullChar: Char?,
-        val nonNullChar: Char?,
-        val int: Int,
-        val nullInt: Int?,
-        val nonNullInt: Int?,
-        val long: Long,
-        val nullLong: Long?,
-        val nonNullLong: Long?,
-        val double: Double,
-        val nullDouble: Double?,
-        val nonNullDouble: Double?,
-        val float: Float,
-        val nullFloat: Float?,
-        val nonNullFloat: Float?,
-        val string: String,
-        val nullString: String?,
-        val nonNullString: String?,
-        val boolean: Boolean,
-        val nullBoolean: Boolean?,
-        val nonNullBoolean: Boolean?,
-        val enum: Enum,
-        val nullEnum: Enum?,
-        val unit: Unit,
-        val nestedObject: NestedObject,
-        val nullNestedObject: NestedObject?,
-        val nonNullNestedObject: NestedObject?,
-        val doubleNestedObject: DoubleNestedObject,
-        val byteList: List<Byte>,
-        val shortList: List<Short>,
-        val charList: List<Char>,
-        val intList: List<Int>,
-        val longList: List<Long>,
-        val floatList: List<Float>,
-        val doubleList: List<Double>,
-        val stringList: List<String>,
-        val booleanList: List<Boolean>,
-        val enumList: List<Enum>,
-        val nestedObjectList: List<NestedObject>,
-        val stringMap: Map<String, String>,
-        val enumMap: Map<Enum, String>
-    )
-
-    @Serializable
-    data class NestedObject(
-        val value: String
-    )
-
-    @Serializable
-    data class DoubleNestedObject(
-        val nestedObject: NestedObject
-    )
-
-    @Serializable
-    data class NullableNestedObject(
-        val value: String,
-        val nestedMap: Map<String, String>? = null,
-        val nestedList: List<NestedObject>? = null
-    )
-
-    private lateinit var v8: V8
-    private lateinit var k2V8: K2V8
+class K2V8Test: K2V8TestBase() {
 
     @Before
-    fun setUp() {
-        v8 = V8.createV8Runtime()
-        k2V8 = K2V8(Configuration(v8))
+    override fun setUp() {
+        super.setUp()
     }
 
     @Test
     fun supportedTypesToV8() = v8.scope {
         forAll(
-            100,
-            Gen.list(Gen.char()).filter { it.isNotEmpty() },
-            Gen.list(Gen.long()).filter { it.isNotEmpty() },
-            Gen.list(Gen.string()).filter { it.isNotEmpty() },
-            Gen.list(Gen.enum<Enum>()).filter { it.isNotEmpty() },
-            Gen.map(Gen.string(), Gen.string().filter { it.isNotEmpty() })
+                100,
+                Gen.list(Gen.char()).filter { it.isNotEmpty() },
+                Gen.list(Gen.long()).filter { it.isNotEmpty() },
+                Gen.list(Gen.string()).filter { it.isNotEmpty() },
+                Gen.list(Gen.enum<Enum>()).filter { it.isNotEmpty() },
+                Gen.map(Gen.string(), Gen.string().filter { it.isNotEmpty() })
         ) { chars, longs, strings, enums, stringMap ->
             val supportedTypes = getSupportedTypes(chars, longs, strings, enums, stringMap)
             val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(SupportedTypes.serializer(), supportedTypes)) {
                 // verify the k2V8.toV8 only increased the reference count by 1 - the final result object
                 (v8.objectReferenceCount - refCountStart) == 1L &&
-                    getInteger("byte").toByte() == supportedTypes.byte &&
-                    get("nullByte") == supportedTypes.nullByte &&
-                    getInteger("nonNullByte").toByte() == supportedTypes.nonNullByte &&
-                    getInteger("short").toShort() == supportedTypes.short &&
-                    get("nullShort") == supportedTypes.nullShort &&
-                    getInteger("nonNullShort").toShort() == supportedTypes.nonNullShort &&
-                    getInteger("char").toChar() == supportedTypes.char &&
-                    get("nullChar") == supportedTypes.nullChar &&
-                    getInteger("nonNullChar").toChar() == supportedTypes.nonNullChar &&
-                    getInteger("int") == supportedTypes.int &&
-                    get("nullInt") == supportedTypes.nullInt &&
-                    getInteger("nonNullInt") == supportedTypes.nonNullInt &&
-                    getDouble("long") == supportedTypes.long.toDouble() &&
-                    get("nullLong") == supportedTypes.nullLong &&
-                    getDouble("nonNullLong") == supportedTypes.nonNullLong!!.toDouble() &&
-                    getDouble("double") == supportedTypes.double &&
-                    get("nullDouble") == supportedTypes.nullDouble &&
-                    getDouble("nonNullDouble") == supportedTypes.nonNullDouble &&
-                    getDouble("float").toFloat() == supportedTypes.float &&
-                    get("nullFloat") == supportedTypes.nullFloat &&
-                    getDouble("nonNullFloat").toFloat() == supportedTypes.nonNullFloat &&
-                    getString("string") == supportedTypes.string &&
-                    get("nullString") == supportedTypes.nullString &&
-                    getString("nonNullString") == supportedTypes.nonNullString &&
-                    getBoolean("boolean") == supportedTypes.boolean &&
-                    get("nullBoolean") == supportedTypes.nullBoolean &&
-                    getBoolean("nonNullBoolean") == supportedTypes.nonNullBoolean &&
-                    getString("enum") == supportedTypes.enum.name &&
-                    get("nullEnum") == supportedTypes.nullEnum &&
-                    getObject("unit").isUndefined &&
-                    getObject("nestedObject").getString("value") == supportedTypes.nestedObject.value &&
-                    getObject("nullNestedObject") == null &&
-                    getObject("nonNullNestedObject").getString("value") == supportedTypes.nonNullNestedObject!!.value &&
-                    getObject("doubleNestedObject").getObject("nestedObject")
-                        .getString("value") == supportedTypes.doubleNestedObject.nestedObject.value &&
-                    with(getObject("byteList") as V8Array) {
-                        supportedTypes.byteList.valueAtIndex { getInteger(it).toByte() }
-                    } &&
-                    with(getObject("shortList") as V8Array) {
-                        supportedTypes.shortList.valueAtIndex { getInteger(it).toShort() }
-                    } &&
-                    with(getObject("charList") as V8Array) {
-                        supportedTypes.charList.valueAtIndex { getInteger(it).toChar() }
-                    } &&
-                    with(getObject("intList") as V8Array) {
-                        supportedTypes.intList.valueAtIndex { getInteger(it) }
-                    } &&
-                    with(getObject("longList") as V8Array) {
-                        supportedTypes.longList.valueAtIndex({ it.toDouble() }) { getDouble(it) }
-                    } &&
-                    with(getObject("floatList") as V8Array) {
-                        supportedTypes.floatList.valueAtIndex { getDouble(it).toFloat() }
-                    } &&
-                    with(getObject("doubleList") as V8Array) {
-                        supportedTypes.doubleList.valueAtIndex { getDouble(it) }
-                    } &&
-                    with(getObject("stringList") as V8Array) {
-                        supportedTypes.stringList.valueAtIndex { getString(it) }
-                    } &&
-                    with(getObject("booleanList") as V8Array) {
-                        supportedTypes.booleanList.valueAtIndex { getBoolean(it) }
-                    } &&
-                    with(getObject("enumList") as V8Array) {
-                        supportedTypes.enumList.valueAtIndex({ it.name }) { getString(it) }
-                    } &&
-                    with(getObject("nestedObjectList") as V8Array) {
-                        supportedTypes.nestedObjectList.valueAtIndex({ it.value }) {
-                            getObject(it).getString("value")
+                        getInteger("byte").toByte() == supportedTypes.byte &&
+                        get("nullByte") == supportedTypes.nullByte &&
+                        getInteger("nonNullByte").toByte() == supportedTypes.nonNullByte &&
+                        getInteger("short").toShort() == supportedTypes.short &&
+                        get("nullShort") == supportedTypes.nullShort &&
+                        getInteger("nonNullShort").toShort() == supportedTypes.nonNullShort &&
+                        getInteger("char").toChar() == supportedTypes.char &&
+                        get("nullChar") == supportedTypes.nullChar &&
+                        getInteger("nonNullChar").toChar() == supportedTypes.nonNullChar &&
+                        getInteger("int") == supportedTypes.int &&
+                        get("nullInt") == supportedTypes.nullInt &&
+                        getInteger("nonNullInt") == supportedTypes.nonNullInt &&
+                        getDouble("long") == supportedTypes.long.toDouble() &&
+                        get("nullLong") == supportedTypes.nullLong &&
+                        getDouble("nonNullLong") == supportedTypes.nonNullLong!!.toDouble() &&
+                        getDouble("double") == supportedTypes.double &&
+                        get("nullDouble") == supportedTypes.nullDouble &&
+                        getDouble("nonNullDouble") == supportedTypes.nonNullDouble &&
+                        getDouble("float").toFloat() == supportedTypes.float &&
+                        get("nullFloat") == supportedTypes.nullFloat &&
+                        getDouble("nonNullFloat").toFloat() == supportedTypes.nonNullFloat &&
+                        getString("string") == supportedTypes.string &&
+                        get("nullString") == supportedTypes.nullString &&
+                        getString("nonNullString") == supportedTypes.nonNullString &&
+                        getBoolean("boolean") == supportedTypes.boolean &&
+                        get("nullBoolean") == supportedTypes.nullBoolean &&
+                        getBoolean("nonNullBoolean") == supportedTypes.nonNullBoolean &&
+                        getString("enum") == supportedTypes.enum.name &&
+                        get("nullEnum") == supportedTypes.nullEnum &&
+                        getObject("unit").isUndefined &&
+                        getObject("nestedObject").getString("value") == supportedTypes.nestedObject.value &&
+                        getObject("nullNestedObject") == null &&
+                        getObject("nonNullNestedObject").getString("value") == supportedTypes.nonNullNestedObject!!.value &&
+                        getObject("doubleNestedObject").getObject("nestedObject")
+                                .getString("value") == supportedTypes.doubleNestedObject.nestedObject.value &&
+                        with(getObject("byteList") as V8Array) {
+                            supportedTypes.byteList.valueAtIndex { getInteger(it).toByte() }
+                        } &&
+                        with(getObject("shortList") as V8Array) {
+                            supportedTypes.shortList.valueAtIndex { getInteger(it).toShort() }
+                        } &&
+                        with(getObject("charList") as V8Array) {
+                            supportedTypes.charList.valueAtIndex { getInteger(it).toChar() }
+                        } &&
+                        with(getObject("intList") as V8Array) {
+                            supportedTypes.intList.valueAtIndex { getInteger(it) }
+                        } &&
+                        with(getObject("longList") as V8Array) {
+                            supportedTypes.longList.valueAtIndex({ it.toDouble() }) { getDouble(it) }
+                        } &&
+                        with(getObject("floatList") as V8Array) {
+                            supportedTypes.floatList.valueAtIndex { getDouble(it).toFloat() }
+                        } &&
+                        with(getObject("doubleList") as V8Array) {
+                            supportedTypes.doubleList.valueAtIndex { getDouble(it) }
+                        } &&
+                        with(getObject("stringList") as V8Array) {
+                            supportedTypes.stringList.valueAtIndex { getString(it) }
+                        } &&
+                        with(getObject("booleanList") as V8Array) {
+                            supportedTypes.booleanList.valueAtIndex { getBoolean(it) }
+                        } &&
+                        with(getObject("enumList") as V8Array) {
+                            supportedTypes.enumList.valueAtIndex({ it.name }) { getString(it) }
+                        } &&
+                        with(getObject("nestedObjectList") as V8Array) {
+                            supportedTypes.nestedObjectList.valueAtIndex({ it.value }) {
+                                getObject(it).getString("value")
+                            }
+                        } &&
+                        with(getObject("stringMap") as V8Object) {
+                            supportedTypes.stringMap.valueForKey { getString(it) }
+                        } &&
+                        with(getObject("enumMap") as V8Object) {
+                            supportedTypes.enumMap.valueForKey({ it.name }) { getString(it) }
                         }
-                    } &&
-                    with(getObject("stringMap") as V8Object) {
-                        supportedTypes.stringMap.valueForKey { getString(it) }
-                    } &&
-                    with(getObject("enumMap") as V8Object) {
-                        supportedTypes.enumMap.valueForKey({ it.name }) { getString(it) }
-                    }
             }
         }
     }
@@ -222,12 +134,12 @@ class K2V8Test {
     @Test
     fun supportedTypesFromV8() = v8.scope {
         forAll(
-            100,
-            Gen.list(Gen.char()).filter { it.isNotEmpty() },
-            Gen.list(Gen.long()).filter { it.isNotEmpty() },
-            Gen.list(Gen.string()).filter { it.isNotEmpty() },
-            Gen.list(Gen.enum<Enum>()).filter { it.isNotEmpty() },
-            Gen.map(Gen.string(), Gen.string().filter { it.isNotEmpty() })
+                100,
+                Gen.list(Gen.char()).filter { it.isNotEmpty() },
+                Gen.list(Gen.long()).filter { it.isNotEmpty() },
+                Gen.list(Gen.string()).filter { it.isNotEmpty() },
+                Gen.list(Gen.enum<Enum>()).filter { it.isNotEmpty() },
+                Gen.map(Gen.string(), Gen.string().filter { it.isNotEmpty() })
         ) { chars, longs, strings, enums, stringMap ->
             val supportedTypes = getSupportedTypes(chars, longs, strings, enums, stringMap)
             val nestedV8Object = V8Object(v8).apply {
@@ -238,8 +150,8 @@ class K2V8Test {
             }
             val doubleNestedVObject = V8Object(v8).apply {
                 add(
-                    "nestedObject",
-                    V8Object(v8).add("value", supportedTypes.doubleNestedObject.nestedObject.value)
+                        "nestedObject",
+                        V8Object(v8).add("value", supportedTypes.doubleNestedObject.nestedObject.value)
                 )
             }
             val byteV8Array = supportedTypes.byteList.map { it.toInt() }.toV8Array(v8)
@@ -314,52 +226,52 @@ class K2V8Test {
             with(k2V8.fromV8(SupportedTypes.serializer(), value)) {
                 // make sure the V8Object references all released.
                 v8.objectReferenceCount - startCount == 0L &&
-                    byte == supportedTypes.byte &&
-                    nullByte == supportedTypes.nullByte &&
-                    nonNullByte == supportedTypes.nonNullByte &&
-                    short == supportedTypes.short &&
-                    nullShort == supportedTypes.nullShort &&
-                    nonNullShort == supportedTypes.nonNullShort &&
-                    char == supportedTypes.char &&
-                    nullChar == supportedTypes.nullChar &&
-                    nonNullChar == supportedTypes.nonNullChar &&
-                    int == supportedTypes.int &&
-                    nullInt == supportedTypes.nullInt &&
-                    nonNullInt == supportedTypes.nonNullInt &&
-                    long.toDouble() == supportedTypes.long.toDouble() &&
-                    nullLong == supportedTypes.nullLong &&
-                    nonNullLong!!.toDouble() == supportedTypes.nonNullLong!!.toDouble() &&
-                    double == supportedTypes.double &&
-                    nullDouble == supportedTypes.nullDouble &&
-                    nonNullDouble == supportedTypes.nonNullDouble &&
-                    float == supportedTypes.float &&
-                    nullFloat == supportedTypes.nullFloat &&
-                    nonNullFloat == supportedTypes.nonNullFloat &&
-                    string == supportedTypes.string &&
-                    nullString == supportedTypes.nullString &&
-                    nonNullString == supportedTypes.nonNullString &&
-                    boolean == supportedTypes.boolean &&
-                    nullBoolean == supportedTypes.nullBoolean &&
-                    nonNullBoolean == supportedTypes.nonNullBoolean &&
-                    enum == supportedTypes.enum &&
-                    nullEnum == supportedTypes.nullEnum &&
-                    unit == supportedTypes.unit &&
-                    nestedObject.value == supportedTypes.nestedObject.value &&
-                    nullNestedObject == null &&
-                    nonNullNestedObject!!.value == supportedTypes.nonNullNestedObject!!.value &&
-                    byteList == supportedTypes.byteList &&
-                    shortList == supportedTypes.shortList &&
-                    charList == supportedTypes.charList &&
-                    intList == supportedTypes.intList &&
-                    longList.map { it.toDouble() } == supportedTypes.longList.map { it.toDouble() } &&
-                    floatList == supportedTypes.floatList &&
-                    doubleList == supportedTypes.doubleList &&
-                    stringList == supportedTypes.stringList &&
-                    booleanList == supportedTypes.booleanList &&
-                    enumList == supportedTypes.enumList &&
-                    nestedObjectList == supportedTypes.nestedObjectList &&
-                    stringMap == supportedTypes.stringMap &&
-                    enumMap == supportedTypes.enumMap
+                        byte == supportedTypes.byte &&
+                        nullByte == supportedTypes.nullByte &&
+                        nonNullByte == supportedTypes.nonNullByte &&
+                        short == supportedTypes.short &&
+                        nullShort == supportedTypes.nullShort &&
+                        nonNullShort == supportedTypes.nonNullShort &&
+                        char == supportedTypes.char &&
+                        nullChar == supportedTypes.nullChar &&
+                        nonNullChar == supportedTypes.nonNullChar &&
+                        int == supportedTypes.int &&
+                        nullInt == supportedTypes.nullInt &&
+                        nonNullInt == supportedTypes.nonNullInt &&
+                        long.toDouble() == supportedTypes.long.toDouble() &&
+                        nullLong == supportedTypes.nullLong &&
+                        nonNullLong!!.toDouble() == supportedTypes.nonNullLong!!.toDouble() &&
+                        double == supportedTypes.double &&
+                        nullDouble == supportedTypes.nullDouble &&
+                        nonNullDouble == supportedTypes.nonNullDouble &&
+                        float == supportedTypes.float &&
+                        nullFloat == supportedTypes.nullFloat &&
+                        nonNullFloat == supportedTypes.nonNullFloat &&
+                        string == supportedTypes.string &&
+                        nullString == supportedTypes.nullString &&
+                        nonNullString == supportedTypes.nonNullString &&
+                        boolean == supportedTypes.boolean &&
+                        nullBoolean == supportedTypes.nullBoolean &&
+                        nonNullBoolean == supportedTypes.nonNullBoolean &&
+                        enum == supportedTypes.enum &&
+                        nullEnum == supportedTypes.nullEnum &&
+                        unit == supportedTypes.unit &&
+                        nestedObject.value == supportedTypes.nestedObject.value &&
+                        nullNestedObject == null &&
+                        nonNullNestedObject!!.value == supportedTypes.nonNullNestedObject!!.value &&
+                        byteList == supportedTypes.byteList &&
+                        shortList == supportedTypes.shortList &&
+                        charList == supportedTypes.charList &&
+                        intList == supportedTypes.intList &&
+                        longList.map { it.toDouble() } == supportedTypes.longList.map { it.toDouble() } &&
+                        floatList == supportedTypes.floatList &&
+                        doubleList == supportedTypes.doubleList &&
+                        stringList == supportedTypes.stringList &&
+                        booleanList == supportedTypes.booleanList &&
+                        enumList == supportedTypes.enumList &&
+                        nestedObjectList == supportedTypes.nestedObjectList &&
+                        stringMap == supportedTypes.stringMap &&
+                        enumMap == supportedTypes.enumMap
             }
         }
     }
@@ -369,7 +281,9 @@ class K2V8Test {
     @Test
     fun sealedClassToV8() = v8.scope {
         forAll(100, Gen.string()) { string ->
+            val refCountStart = v8.objectReferenceCount
             val encoded = k2V8.toV8(SealedClass.serializer(), SealedClass.ClassOne(string))
+            assertEquals(refCountStart + 1, v8.objectReferenceCount)
             with(encoded) {
                 getString("someString") == string
             }
@@ -379,7 +293,9 @@ class K2V8Test {
     @Test
     fun sealedClassFromV8() = v8.scope {
         forAll(100, Gen.string()) { string ->
+            val refCountStart = v8.objectReferenceCount
             val decoded = k2V8.fromV8(SealedClass.serializer(), k2V8.toV8(SealedClass.serializer(), SealedClass.ClassOne(string)))
+            assertEquals(1, v8.objectReferenceCount - refCountStart)
             decoded is SealedClass.ClassOne && decoded.someString == string
         }
     }
@@ -391,7 +307,9 @@ class K2V8Test {
     @Test
     fun byteListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.byte())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Byte.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toInt() }) { getInteger(it) }
             }
         }
@@ -401,7 +319,9 @@ class K2V8Test {
     fun byteListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.byte())) { list ->
             val array = list.map { it.toInt() }.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Byte.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -410,7 +330,9 @@ class K2V8Test {
     @Test
     fun shortListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.short())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Short.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toInt() }) { getInteger(it) }
             }
         }
@@ -420,7 +342,9 @@ class K2V8Test {
     fun shortListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.short())) { list ->
             val array = list.map { it.toInt() }.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Short.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -429,7 +353,9 @@ class K2V8Test {
     @Test
     fun charListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.char())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Char.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toInt() }) { getInteger(it) }
             }
         }
@@ -448,7 +374,9 @@ class K2V8Test {
     @Test
     fun intListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.int())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Int.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { getInteger(it) }
             }
         }
@@ -458,7 +386,9 @@ class K2V8Test {
     fun intListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.int())) { list ->
             val array = list.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Int.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -467,7 +397,9 @@ class K2V8Test {
     @Test
     fun longListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.long())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Long.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toDouble() }) { getDouble(it) }
             }
         }
@@ -477,7 +409,9 @@ class K2V8Test {
     fun longListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.long())) { list ->
             val array = list.map { it.toDouble() }.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Long.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toDouble() }) { get(it).toDouble() }
             }
         }
@@ -486,7 +420,9 @@ class K2V8Test {
     @Test
     fun floatListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.float().filter { !it.isNaN() })) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Float.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.toDouble() }) { getDouble(it) }
             }
         }
@@ -496,7 +432,9 @@ class K2V8Test {
     fun floatListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.float().filter { !it.isNaN() })) { list ->
             val array = list.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Float.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -505,7 +443,9 @@ class K2V8Test {
     @Test
     fun doubleListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.double().filter { !it.isNaN() })) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Double.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { getDouble(it) }
             }
         }
@@ -515,7 +455,9 @@ class K2V8Test {
     fun doubleListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.double().filter { !it.isNaN() })) { list ->
             val array = list.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Double.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -524,7 +466,9 @@ class K2V8Test {
     @Test
     fun stringListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.string())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(String.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { getString(it) }
             }
         }
@@ -534,7 +478,9 @@ class K2V8Test {
     fun stringListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.string())) { list ->
             val array = list.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(String.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -543,7 +489,9 @@ class K2V8Test {
     @Test
     fun booleanListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.bool())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Boolean.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { getBoolean(it) }
             }
         }
@@ -553,7 +501,9 @@ class K2V8Test {
     fun booleanListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.bool())) { list ->
             val array = list.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Boolean.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -562,17 +512,22 @@ class K2V8Test {
     @Test
     fun enumListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.enum<Enum>())) { list ->
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(Enum.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.name }) { getString(it) }
             }
         }
     }
 
+
     @Test
     fun enumListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.enum<Enum>())) { list ->
             val array = list.map { it.toString() }.toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(Enum.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it) }
             }
         }
@@ -582,7 +537,9 @@ class K2V8Test {
     fun objectListToV8() = v8.scope {
         forAll(100, Gen.list(Gen.string())) { strings ->
             val list = strings.map { NestedObject(it) }
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.toV8(ListSerializer(NestedObject.serializer()), list) as V8Array) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex({ it.value }) { getObject(it).getString("value") }
             }
         }
@@ -592,13 +549,15 @@ class K2V8Test {
     fun objectListFromV8() = v8.scope {
         forAll(100, Gen.list(Gen.string())) { list ->
             val array = list
-                .map { value ->
-                    V8Object(v8).also {
-                        it.add("value", value)
+                    .map { value ->
+                        V8Object(v8).also {
+                            it.add("value", value)
+                        }
                     }
-                }
-                .toV8Array(v8)
+                    .toV8Array(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(ListSerializer(NestedObject.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 list.valueAtIndex { get(it).value }
             }
         }
@@ -611,12 +570,14 @@ class K2V8Test {
     @Test
     fun stringKeyedMapToV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.string())) { map ->
+            val refCountStart = v8.objectReferenceCount
             with(
-                k2V8.toV8(
-                    MapSerializer(String.serializer(), String.serializer()),
-                    map
-                )
+                    k2V8.toV8(
+                            MapSerializer(String.serializer(), String.serializer()),
+                            map
+                    )
             ) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { getString(it) }
             }
         }
@@ -626,7 +587,9 @@ class K2V8Test {
     fun stringKeyedMapFromV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.string())) { map ->
             val v8Object = map.toV8Object(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(MapSerializer(String.serializer(), String.serializer()), v8Object)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { get(it) }
             }
         }
@@ -635,12 +598,14 @@ class K2V8Test {
     @Test
     fun stringKeyedIntValueMapToV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.int())) { map ->
+            val refCountStart = v8.objectReferenceCount
             with(
-                k2V8.toV8(
-                    MapSerializer(String.serializer(), Int.serializer()),
-                    map
-                )
+                    k2V8.toV8(
+                            MapSerializer(String.serializer(), Int.serializer()),
+                            map
+                    )
             ) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { getInteger(it) }
             }
         }
@@ -650,7 +615,9 @@ class K2V8Test {
     fun stringKeyedIntValueMapFromV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.int())) { map ->
             val v8Object = map.toV8Object(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(MapSerializer(String.serializer(), Int.serializer()), v8Object)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { get(it) }
             }
         }
@@ -659,12 +626,14 @@ class K2V8Test {
     @Test
     fun stringKeyedDoubleValueMapToV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.double())) { map ->
+            val refCountStart = v8.objectReferenceCount
             with(
-                k2V8.toV8(
-                    MapSerializer(String.serializer(), Double.serializer()),
-                    map
-                )
+                    k2V8.toV8(
+                            MapSerializer(String.serializer(), Double.serializer()),
+                            map
+                    )
             ) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { getDouble(it) }
             }
         }
@@ -674,7 +643,9 @@ class K2V8Test {
     fun stringKeyedDoubleValueMapFromV8() = v8.scope {
         forAll(100, Gen.map(Gen.string(), Gen.double())) { map ->
             val v8Object = map.toV8Object(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(MapSerializer(String.serializer(), Double.serializer()), v8Object)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { get(it) }
             }
         }
@@ -686,12 +657,14 @@ class K2V8Test {
             val map = stringMap.mapValues { (_, value) ->
                 NestedObject(value)
             }
+            val refCountStart = v8.objectReferenceCount
             with(
-                k2V8.toV8(
-                    MapSerializer(String.serializer(), NestedObject.serializer()),
-                    map
-                )
+                    k2V8.toV8(
+                            MapSerializer(String.serializer(), NestedObject.serializer()),
+                            map
+                    )
             ) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 map.valueForKey {
                     NestedObject(getObject(it).getString("value"))
                 }
@@ -707,7 +680,9 @@ class K2V8Test {
                     it.add("value", value)
                 }
             }.toV8Object(v8)
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(MapSerializer(String.serializer(), NestedObject.serializer()), v8Object)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { get(it)!!.value }
             }
         }
@@ -716,12 +691,14 @@ class K2V8Test {
     @Test
     fun enumKeyedMapToV8() = v8.scope {
         forAll(100, Gen.map(Gen.enum<Enum>(), Gen.string())) { map ->
+            val refCountStart = v8.objectReferenceCount
             with(
-                k2V8.toV8(
-                    MapSerializer(Enum.serializer(), String.serializer()),
-                    map
-                )
+                    k2V8.toV8(
+                            MapSerializer(Enum.serializer(), String.serializer()),
+                            map
+                    )
             ) {
+                assertEquals(1, v8.objectReferenceCount - refCountStart)
                 map.valueForKey({ it.name }) { getString(it) }
             }
         }
@@ -733,7 +710,9 @@ class K2V8Test {
             val array = V8Array(v8).apply {
                 map.entries.onEach { (key, value) -> add(key.name, value) }
             }
+            val refCountStart = v8.objectReferenceCount
             with(k2V8.fromV8(MapSerializer(Enum.serializer(), String.serializer()), array)) {
+                assertEquals(0, v8.objectReferenceCount - refCountStart)
                 map.valueForKey { get(it) }
             }
         }
@@ -742,31 +721,41 @@ class K2V8Test {
     @Test(expected = V8EncodingException::class)
     fun intKeyedMapToV8ThrowsException() {
         val intMap = mapOf(1 to "1", 2 to "2", 3 to "3")
+        val refCountStart = v8.objectReferenceCount
         k2V8.toV8(MapSerializer(Int.serializer(), String.serializer()), intMap)
+        assertEquals(1, v8.objectReferenceCount - refCountStart)
     }
 
     @Test(expected = V8EncodingException::class)
     fun longKeyedMapToV8ThrowsException() {
         val longMap = mapOf(1L to "1", 2L to "2", 3L to "3")
+        val refCountStart = v8.objectReferenceCount
         k2V8.toV8(MapSerializer(Long.serializer(), String.serializer()), longMap)
+        assertEquals(1, v8.objectReferenceCount - refCountStart)
     }
 
     @Test(expected = V8EncodingException::class)
     fun doubleKeyedMapToV8ThrowsException() {
         val doubleMap = mapOf(1.0 to "1", 2.0 to "2", 3.0 to "3")
+        val refCountStart = v8.objectReferenceCount
         k2V8.toV8(MapSerializer(Double.serializer(), String.serializer()), doubleMap)
+        assertEquals(1, v8.objectReferenceCount - refCountStart)
     }
 
     @Test(expected = V8EncodingException::class)
     fun floatKeyedMapToV8ThrowsException() {
         val floatMap = mapOf(1f to "1", 2f to "2", 3f to "3")
+        val refCountStart = v8.objectReferenceCount
         k2V8.toV8(MapSerializer(Float.serializer(), String.serializer()), floatMap)
+        assertEquals(1, v8.objectReferenceCount - refCountStart)
     }
 
     @Test
     fun undefinedValueIsSerialized() {
         val jsonObject = v8.executeScript("var result = {\"value\": \"foo\", \"nestedList\": undefined, \"nestedMap\": undefined}; result")
+        val refCountStart = v8.objectReferenceCount
         val v8Object = k2V8.fromV8(NullableNestedObject.serializer(), jsonObject as V8Object)
+        assertEquals(0, v8.objectReferenceCount - refCountStart)
         v8Object.value.shouldBe("foo")
         v8Object.nestedList?.shouldBeEmpty()
         v8Object.nestedMap?.shouldBe(mapOf())
@@ -777,65 +766,65 @@ class K2V8Test {
     // region helpers
 
     private fun getSupportedTypes(
-        chars: List<Char>,
-        longs: List<Long>,
-        strings: List<String>,
-        enums: List<Enum>,
-        stringMap: Map<String, String>
+            chars: List<Char>,
+            longs: List<Long>,
+            strings: List<String>,
+            enums: List<Enum>,
+            stringMap: Map<String, String>
     ) =
-        SupportedTypes(
-            byte = chars.random().toByte(),
-            nullByte = null,
-            nonNullByte = chars.random().toByte(),
-            short = chars.random().toShort(),
-            nullShort = null,
-            nonNullShort = chars.random().toShort(),
-            char = chars.random(),
-            nullChar = null,
-            nonNullChar = chars.random(),
-            int = longs.random().toInt(),
-            nullInt = null,
-            nonNullInt = longs.random().toInt(),
-            long = longs.random(),
-            nullLong = null,
-            nonNullLong = longs.random(),
-            float = longs.random().toFloat(),
-            nullFloat = null,
-            nonNullFloat = longs.random().toFloat(),
-            double = longs.random().toDouble(),
-            nullDouble = null,
-            nonNullDouble = longs.random().toDouble(),
-            string = strings.random(),
-            nullString = null,
-            nonNullString = strings.random(),
-            boolean = true,
-            nullBoolean = null,
-            nonNullBoolean = true,
-            enum = enums.random(),
-            nullEnum = null,
-            unit = Unit,
-            nestedObject = NestedObject(strings.random()),
-            nullNestedObject = null,
-            nonNullNestedObject = NestedObject(strings.random()),
-            doubleNestedObject = DoubleNestedObject(NestedObject(strings.random())),
-            byteList = chars.map { it.toByte() },
-            shortList = chars.map { it.toShort() },
-            charList = chars,
-            intList = longs.map { it.toInt() },
-            longList = longs,
-            floatList = longs.map { it.toFloat() },
-            doubleList = longs.map { it.toDouble() },
-            stringList = strings,
-            booleanList = listOf(true, false, true),
-            enumList = enums,
-            nestedObjectList = strings.map { NestedObject(it) },
-            stringMap = stringMap,
-            enumMap = mapOf(
-                enums.random() to strings.random(),
-                enums.random() to strings.random(),
-                enums.random() to strings.random()
+            SupportedTypes(
+                    byte = chars.random().toByte(),
+                    nullByte = null,
+                    nonNullByte = chars.random().toByte(),
+                    short = chars.random().toShort(),
+                    nullShort = null,
+                    nonNullShort = chars.random().toShort(),
+                    char = chars.random(),
+                    nullChar = null,
+                    nonNullChar = chars.random(),
+                    int = longs.random().toInt(),
+                    nullInt = null,
+                    nonNullInt = longs.random().toInt(),
+                    long = longs.random(),
+                    nullLong = null,
+                    nonNullLong = longs.random(),
+                    float = longs.random().toFloat(),
+                    nullFloat = null,
+                    nonNullFloat = longs.random().toFloat(),
+                    double = longs.random().toDouble(),
+                    nullDouble = null,
+                    nonNullDouble = longs.random().toDouble(),
+                    string = strings.random(),
+                    nullString = null,
+                    nonNullString = strings.random(),
+                    boolean = true,
+                    nullBoolean = null,
+                    nonNullBoolean = true,
+                    enum = enums.random(),
+                    nullEnum = null,
+                    unit = Unit,
+                    nestedObject = NestedObject(strings.random()),
+                    nullNestedObject = null,
+                    nonNullNestedObject = NestedObject(strings.random()),
+                    doubleNestedObject = DoubleNestedObject(NestedObject(strings.random())),
+                    byteList = chars.map { it.toByte() },
+                    shortList = chars.map { it.toShort() },
+                    charList = chars,
+                    intList = longs.map { it.toInt() },
+                    longList = longs,
+                    floatList = longs.map { it.toFloat() },
+                    doubleList = longs.map { it.toDouble() },
+                    stringList = strings,
+                    booleanList = listOf(true, false, true),
+                    enumList = enums,
+                    nestedObjectList = strings.map { NestedObject(it) },
+                    stringMap = stringMap,
+                    enumMap = mapOf(
+                            enums.random() to strings.random(),
+                            enums.random() to strings.random(),
+                            enums.random() to strings.random()
+                    )
             )
-        )
 
     // endregion
 }
