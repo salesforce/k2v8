@@ -19,6 +19,7 @@ import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.CompositeEncoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.modules.SerializersModule
+import java.lang.Exception
 import java.util.Stack
 
 internal fun <T> K2V8.convertToV8Object(value: T, serializer: SerializationStrategy<T>): V8Object {
@@ -181,7 +182,12 @@ class V8ObjectEncoder(
         value: T
     ) {
         currentNode.encodeElementIndex(descriptor, index)
-        encodeSerializableValue(serializer, value)
+        try {
+            encodeSerializableValue(serializer, value)
+        } catch (ex: Exception) {
+            closeAllNodes()
+            throw ex
+        }
     }
 
     override fun <T> encodeSerializableValue(serializer: SerializationStrategy<T>, value: T) {
@@ -295,6 +301,12 @@ class V8ObjectEncoder(
                     }
                 }
             }
+        }
+    }
+
+    private fun closeAllNodes() {
+        nodes.forEach {
+            it?.v8Object?.close()
         }
     }
 }
